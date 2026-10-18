@@ -1,0 +1,2 @@
+-- Dados fictícios de autorização e isolamento ficam em tests/core_rls.sql.
+-- O seed padrão permanece vazio para não criar um grupo acessível por engano.

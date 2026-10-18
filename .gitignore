@@ -32,6 +32,12 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+prototype-*.html
+prototype-*.png
+prototype.html
+.edge-*/
+.edge-headless/
 
 # typescript
 *.tsbuildinfo

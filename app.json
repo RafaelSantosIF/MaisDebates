@@ -1,24 +1,31 @@
 {
   "expo": {
-    "name": "MaisDebates",
+    "name": "+Debates",
     "slug": "MaisDebates",
+    "scheme": "maisdebates",
+    "experiments": { "typedRoutes": true },
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.maisdebates.app"
     },
     "android": {
+      "package": "com.maisdebates.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#F7F9FC",
+        "foregroundImage": "./assets/icon.png"
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-secure-store"
+    ]
   }
 }
