@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ComponentRef, type ReactNode } from 'react';
 import { router, usePathname } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,6 +6,8 @@ import { colors, radius, space } from '@/shared/theme/tokens';
 
 export function Page({ children, footer, title, onBack }: { children: ReactNode; footer?: ReactNode; title?: string; onBack?: () => void }) {
   const pathname = usePathname();
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  useEffect(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, [pathname, title]);
   const showBack = pathname !== '/' && !['/debates', '/atividade', '/perfil'].includes(pathname);
   function back() {
     if (onBack) { onBack(); return; }
@@ -14,7 +16,7 @@ export function Page({ children, footer, title, onBack }: { children: ReactNode;
   }
   return <SafeAreaView style={styles.page} edges={['top', 'bottom']}>
     {title ? <View style={styles.bar}>{showBack ? <Pressable accessibilityRole="button" accessibilityLabel="Voltar" onPress={back} style={styles.back}><Text style={styles.backText}>‹</Text></Pressable> : null}<Text style={styles.barTitle}>{title === '+Debates' ? <><Text style={styles.brandPlus}>+</Text>Debates</> : title}</Text></View> : null}
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">{children}</ScrollView>
+    <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">{children}</ScrollView>
     {footer ? <View style={styles.footer}>{footer}</View> : null}
   </SafeAreaView>;
 }
