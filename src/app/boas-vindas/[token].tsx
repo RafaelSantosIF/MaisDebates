@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { redeemInvite } from '@/features/invitations/api';
 import { rules } from '@/features/invitations/rules';
 import { Body, Button, Field, Heading, Kicker, Page } from '@/shared/ui/Primitives';
+import { SkiaGlyph } from '@/shared/graphics/ConversationArt';
 import { colors } from '@/shared/theme/tokens';
 
 export default function WelcomeScreen() {
@@ -19,12 +20,17 @@ export default function WelcomeScreen() {
     if (!accepted) { setError('Leia e aceite os combinados para entrar.'); return; }
     setError(''); redeem.mutate();
   }
-  return <Page title="Boas-vindas" footer={<Button label="Entrar no debate" onPress={submit} busy={redeem.isPending} />}>
-    <Kicker>Antes de começar</Kicker><Heading>Ideias diferentes.{"\n"}Respeito em comum.</Heading>
-    {rules.map((rule, index) => <View key={rule.title} style={styles.rule}><Text style={styles.ruleIcon}>{['◇', '▢', '♢'][index]}</Text><View style={styles.ruleContent}><Text style={styles.ruleTitle}>{rule.title}</Text><Body>{rule.body}</Body></View></View>)}
+
+  return <Page title="Boas-vindas" footer={<Button label="Entrar no debate" onPress={submit} busy={redeem.isPending} large />}>
+    <Kicker>Antes de começar</Kicker>
+    <Heading>Ideias diferentes.{'\n'}Respeito em comum.</Heading>
+    {rules.map((rule) => <View key={rule.title} style={styles.rule}>
+      <View style={styles.ruleIcon}><SkiaGlyph name={rule.title === 'Leia antes de opinar' ? 'comments' : rule.title === 'Explique suas razões' ? 'idea' : 'shield'} size={24} color="#3478E8" /></View>
+      <View style={styles.ruleContent}><Text style={styles.ruleTitle}>{rule.title}</Text><Body>{rule.body}</Body></View>
+    </View>)}
     <Field label="Como você quer aparecer?" value={name} onChangeText={setName} placeholder="Seu nome de exibição" helper="Use um nome curto. Não precisamos do seu nome completo." />
     <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: accepted }} onPress={() => setAccepted(!accepted)} style={styles.checkline}>
-      <View style={[styles.checkbox, accepted && styles.checked]}>{accepted ? <Text style={styles.tick}>✓</Text> : null}</View>
+      <View style={[styles.checkbox, accepted && styles.checked]}>{accepted ? <SkiaGlyph name="check" size={16} color={colors.white} /> : null}</View>
       <Text style={styles.checkText}>Li os combinados. Entendo que minhas contribuições serão vistas pelo grupo convidado.</Text>
     </Pressable>
     {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
@@ -32,9 +38,9 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  rule: { flexDirection: 'row', gap: 12, marginVertical: 10 }, ruleIcon: { color: colors.blue, fontSize: 22, width: 22 }, ruleContent: { flex: 1 },
+  rule: { flexDirection: 'row', gap: 12, marginVertical: 10 }, ruleIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }, ruleContent: { flex: 1 },
   ruleTitle: { color: colors.ink, fontSize: 14, fontWeight: '700', marginBottom: 3 },
   checkline: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, marginVertical: 16 },
-  checkbox: { width: 18, height: 18, borderRadius: 3, borderWidth: 1, borderColor: colors.blue, marginTop: 2 }, checked: { backgroundColor: colors.blue }, tick: { color: colors.white, fontSize: 13, lineHeight: 17, textAlign: 'center' },
+  checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 1, borderColor: colors.blue, marginTop: 2, alignItems: 'center', justifyContent: 'center' }, checked: { backgroundColor: colors.blue },
   checkText: { flex: 1, color: colors.muted, fontSize: 11, lineHeight: 18 }, error: { color: colors.red, fontSize: 12, marginTop: 8 },
 });

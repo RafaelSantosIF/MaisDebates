@@ -7,7 +7,8 @@ values
  ('00000000-0000-0000-0000-000000000000','10000000-0000-0000-0000-000000000002','authenticated','authenticated','mediator-a@example.test','',now(),now(),now()),
  ('00000000-0000-0000-0000-000000000000','10000000-0000-0000-0000-000000000003','authenticated','authenticated','participant-b@example.test','',now(),now(),now()),
  ('00000000-0000-0000-0000-000000000000','10000000-0000-0000-0000-000000000004','authenticated','authenticated','mediator-b@example.test','',now(),now(),now()),
- ('00000000-0000-0000-0000-000000000000','10000000-0000-0000-0000-000000000005','authenticated','authenticated','visitor@example.test','',now(),now(),now());
+ ('00000000-0000-0000-0000-000000000000','10000000-0000-0000-0000-000000000005','authenticated','authenticated','visitor@example.test','',now(),now(),now()),
+ ('00000000-0000-0000-0000-000000000000','10000000-0000-0000-0000-000000000006','authenticated','authenticated','visitor-two@example.test','',now(),now(),now());
 
 insert into public.spaces(id,title,created_by) values
  ('20000000-0000-0000-0000-000000000001','Grupo A','10000000-0000-0000-0000-000000000002'),
@@ -48,6 +49,7 @@ do $$ begin
   if has_table_privilege('authenticated','public.positions','INSERT') then raise exception 'client insert grant leaked'; end if;
   if has_function_privilege('authenticated','public.redeem_invite(uuid,text,text)','EXECUTE') then raise exception 'client RPC grant leaked'; end if;
   if has_function_privilege('authenticated','public.update_member_name(uuid,uuid,text)','EXECUTE') then raise exception 'profile RPC grant leaked'; end if;
+  if has_table_privilege('authenticated','public.member_profiles','INSERT,UPDATE,DELETE') then raise exception 'profile write grant leaked'; end if;
   if has_function_privilege('authenticated','public.restore_report(uuid,uuid,text,integer)','EXECUTE') then raise exception 'restore RPC grant leaked'; end if;
 end $$;
 reset role;
@@ -84,13 +86,20 @@ reset role;
 
 -- Only server role can issue and consume a token. Capture it in a temporary table,
 -- never emit it in test output or versioned fixtures.
+insert into public.space_memberships(space_id,user_id,role,display_name) values
+ ('20000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','participant','Ana antiga');
 create temp table test_invite_token(token text) on commit drop;
+create temp table test_open_invite_token(token text) on commit drop;
 grant select, insert on test_invite_token to service_role;
+grant select, insert on test_open_invite_token to service_role;
 set role service_role;
 do $$ declare issued jsonb; result jsonb; begin
   issued := public.issue_invite('10000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000001',now()+interval '1 day');
   if issued->>'code' <> 'OK' then raise exception 'mediator A cannot issue invite'; end if;
   insert into test_invite_token(token) values (issued->>'token');
+  issued := public.issue_invite('10000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001',null,now()+interval '7 days',true);
+  if issued->>'code' <> 'OK' then raise exception 'mediator A cannot issue open invite'; end if;
+  insert into test_open_invite_token(token) values (issued->>'token');
   result := public.issue_invite('10000000-0000-0000-0000-000000000004','20000000-0000-0000-0000-000000000001',null,now()+interval '1 day');
   if result->>'code' <> 'NOT_A_MEDIATOR' then raise exception 'mediator B issued A invite'; end if;
 end $$;
@@ -99,17 +108,18 @@ reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000002',true);
 do $$ begin
-  if (select count(*) from public.invitations) <> 1 then raise exception 'mediator A cannot see A invite'; end if;
+  if (select count(*) from public.invitations) <> 2 then raise exception 'mediator A cannot see both A invites'; end if;
 end $$;
 reset role;
 
 set role service_role;
-do $$ declare token text; result jsonb; begin
+do $$ declare token text; open_token text; result jsonb; begin
   select t.token into token from test_invite_token t;
-  result := public.update_member_name('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002','Nome indevido');
-  if result->>'code' <> 'NOT_A_MEMBER' then raise exception 'participant A renamed in group B'; end if;
+  select t.token into open_token from test_open_invite_token t;
   result := public.update_member_name('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','Ana L.');
   if result->>'code' <> 'OK' then raise exception 'participant A cannot rename herself'; end if;
+  result := public.update_member_profile('10000000-0000-0000-0000-000000000001','Ana compartilhada');
+  if result->>'code' <> 'OK' then raise exception 'participant A cannot update shared profile'; end if;
   result := public.preview_invite(token);
   if result->>'code' <> 'OK' then raise exception 'preview failed'; end if;
   if result->>'mediator_name' <> 'Marina' then raise exception 'invite omitted mediator attribution'; end if;
@@ -117,6 +127,10 @@ do $$ declare token text; result jsonb; begin
   if result->>'code' <> 'OK' then raise exception 'redeem failed'; end if;
   result := public.redeem_invite('10000000-0000-0000-0000-000000000003',token,'Bia');
   if result->>'code' <> 'INVITE_USED' then raise exception 'reused invite succeeded'; end if;
+  result := public.redeem_invite('10000000-0000-0000-0000-000000000003',open_token,'Bia');
+  if result->>'code' <> 'OK' then raise exception 'first open invite use failed'; end if;
+  result := public.redeem_invite('10000000-0000-0000-0000-000000000006',open_token,'Visitante 2');
+  if result->>'code' <> 'OK' then raise exception 'second open invite use failed'; end if;
   result := public.save_position('10000000-0000-0000-0000-000000000005','30000000-0000-0000-0000-000000000002','em_parte','Cross group',null,0,'test-cross-group-001');
   if result->>'code' <> 'NOT_A_MEMBER' then raise exception 'cross group write succeeded'; end if;
   result := public.save_position('10000000-0000-0000-0000-000000000005','30000000-0000-0000-0000-000000000001','em_parte','Minha razão',null,0,'test-position-write-001');
@@ -136,6 +150,22 @@ do $$ declare token text; result jsonb; begin
   if result->>'code' <> 'OK' then raise exception 'mediator A could not hide'; end if;
 end $$;
 reset role;
+
+do $$ begin
+  if (select count(*) from public.space_memberships where user_id='10000000-0000-0000-0000-000000000001' and display_name='Ana compartilhada') <> 2 then raise exception 'shared name was not propagated to both groups'; end if;
+  if (select display_name from public.member_profiles where user_id='10000000-0000-0000-0000-000000000001') <> 'Ana compartilhada' then raise exception 'shared profile not stored'; end if;
+end $$;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000004',true);
+do $$ begin
+  if (select count(*) from public.member_profiles where user_id in ('10000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000003')) <> 2 then raise exception 'group B cannot see shared profiles from its group'; end if;
+  if exists (select 1 from public.member_profiles where user_id='10000000-0000-0000-0000-000000000005') then raise exception 'group B can see a profile from group A'; end if;
+end $$;
+reset role;
+-- Restore the original two-group fixture for the remaining isolation assertions.
+delete from public.space_memberships where user_id='10000000-0000-0000-0000-000000000001' and space_id='20000000-0000-0000-0000-000000000002';
+delete from public.space_memberships where user_id='10000000-0000-0000-0000-000000000003' and space_id='20000000-0000-0000-0000-000000000001';
 
 set role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);

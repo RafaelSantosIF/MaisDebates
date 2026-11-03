@@ -1,8 +1,9 @@
 {
   "name": "maisdebates",
   "version": "1.0.0",
-  "main": "expo-router/entry",
+  "main": "index",
   "dependencies": {
+    "@expo/metro-runtime": "~58.0.16",
     "@hookform/resolvers": "^5.9.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@shopify/react-native-skia": "2.14.0",

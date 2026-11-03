@@ -87,4 +87,4 @@ export const openDebate = (debateId: string, expectedVersion: number) => invoke(
 export const closeDebate = (debateId: string, expectedVersion: number) => invoke('mediation', { action: 'close', debateId, expectedVersion }, versionResponse);
 export const saveSummary = (input: { debateId: string; overview: string; arguments: string; agreementsText: string; divergences: string; openQuestions: string; expectedRevision: number }) => invoke('mediation', { action: 'saveSummary', ...input }, summaryResponse);
 export const publishSummary = (summaryId: string, expectedRevision: number, reviewed: boolean) => invoke('mediation', { action: 'publishSummary', summaryId, expectedRevision, reviewed }, summaryResponse);
-export const issueInvite = (spaceId: string, debateId: string | null, expiresAt: string) => invoke('invite', { action: 'issue', spaceId, debateId, expiresAt }, inviteResponse);
+export const issueInvite = (spaceId: string, debateId: string | null, expiresAt: string, open: boolean) => invoke('invite', { action: 'issue', spaceId, debateId, expiresAt, open }, inviteResponse);

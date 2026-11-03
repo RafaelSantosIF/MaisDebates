@@ -4,8 +4,8 @@ import { z } from 'npm:zod@4';
 const requestSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('preview'), token: z.string().regex(/^[0-9a-f]{64}$/) }),
   z.object({ action: z.literal('redeem'), token: z.string().regex(/^[0-9a-f]{64}$/), displayName: z.string().trim().min(2).max(60) }),
-  z.object({ action: z.literal('issue'), spaceId: z.string().uuid(), debateId: z.string().uuid().nullable(), expiresAt: z.string().datetime() }),
-  z.object({ action: z.literal('rename'), spaceId: z.string().uuid(), displayName: z.string().trim().min(2).max(60) }),
+  z.object({ action: z.literal('issue'), spaceId: z.string().uuid(), debateId: z.string().uuid().nullable(), expiresAt: z.string().datetime(), open: z.boolean() }),
+  z.object({ action: z.literal('rename'), displayName: z.string().trim().min(2).max(60) }),
 ]);
 
 const messages: Record<string, string> = {
@@ -47,8 +47,8 @@ Deno.serve(async (request) => {
     : parsed.action === 'redeem'
       ? await db.rpc('redeem_invite', { p_actor: user.id, p_token: parsed.token, p_display_name: parsed.displayName })
       : parsed.action === 'rename'
-        ? await db.rpc('update_member_name', { p_actor: user.id, p_space_id: parsed.spaceId, p_display_name: parsed.displayName })
-        : await db.rpc('issue_invite', { p_actor: user.id, p_space_id: parsed.spaceId, p_debate_id: parsed.debateId, p_expires_at: parsed.expiresAt });
+        ? await db.rpc('update_member_profile', { p_actor: user.id, p_display_name: parsed.displayName })
+        : await db.rpc('issue_invite', { p_actor: user.id, p_space_id: parsed.spaceId, p_debate_id: parsed.debateId, p_expires_at: parsed.expiresAt, p_open: parsed.open });
   if (error) return respond({ data: null, error: { code: 'UNAVAILABLE', message: 'Não foi possível acessar o convite agora.' }, requestId }, 503);
   const result = data as Record<string, unknown>;
   const code = String(result.code);

@@ -41,7 +41,7 @@ export async function getMyPosition(debateId: string): Promise<Position | null> 
   return data as Position | null;
 }
 
-export async function getPositions(debateId: string, spaceId: string, page = 0) {
+export async function getPositions(debateId: string, _spaceId: string, page = 0) {
   if (!supabase) throw new Error('Configure o Supabase.');
   const pageSize = 20;
   const positionResult = await supabase.from('positions').select('id,debate_id,author_user_id,stance,rationale,source_note,revision,edited_at,visibility,moderation_reason,created_at').eq('debate_id', debateId).order('created_at', { ascending: false }).order('id', { ascending: false }).range(page * pageSize, (page + 1) * pageSize);
@@ -49,7 +49,7 @@ export async function getPositions(debateId: string, spaceId: string, page = 0) 
   const batch = positionResult.data as Position[];
   const positions = batch.slice(0, pageSize);
   const authorIds = [...new Set(positions.map((position) => position.author_user_id))];
-  const memberResult = authorIds.length ? await supabase.from('space_memberships').select('user_id,display_name').eq('space_id', spaceId).in('user_id', authorIds) : { data: [], error: null };
+  const memberResult = authorIds.length ? await supabase.from('member_profiles').select('user_id,display_name').in('user_id', authorIds) : { data: [], error: null };
   if (memberResult.error) throw new Error('Não foi possível carregar os nomes.');
   const names = new Map((memberResult.data || []).map((member) => [member.user_id as string, member.display_name as string]));
   const agreementResult = positions.length ? await supabase.from('agreements').select('position_id').in('position_id', positions.map((p) => p.id)) : { data: [], error: null };

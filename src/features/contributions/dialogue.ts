@@ -26,20 +26,20 @@ export async function getPosition(id: string): Promise<Position> {
   if (error || !data) throw new Error('Esta contribuição não está disponível.');
   return data as Position;
 }
-export async function getAuthorName(spaceId: string, userId: string) {
+export async function getAuthorName(_spaceId: string, userId: string) {
   if (!supabase) throw new Error('Configure o Supabase.');
-  const { data, error } = await supabase.from('space_memberships').select('display_name').eq('space_id', spaceId).eq('user_id', userId).single();
+  const { data, error } = await supabase.from('member_profiles').select('display_name').eq('user_id', userId).single();
   if (error || !data) return 'Participante';
   return data.display_name as string;
 }
-export async function getReplies(positionId: string, spaceId: string, page = 0): Promise<{ items: Reply[]; nextPage: number | null }> {
+export async function getReplies(positionId: string, _spaceId: string, page = 0): Promise<{ items: Reply[]; nextPage: number | null }> {
   if (!supabase) throw new Error('Configure o Supabase.');
   const pageSize = 30;
   const replies = await supabase.from('replies').select('id,debate_id,position_id,author_user_id,kind,body,visibility,moderation_reason,created_at').eq('position_id', positionId).order('created_at').order('id').range(page * pageSize, (page + 1) * pageSize);
   if (replies.error) throw new Error('Não foi possível carregar as respostas.');
   const batch = replies.data as Omit<Reply,'displayName'>[];
   const authorIds = [...new Set(batch.map((reply) => reply.author_user_id))];
-  const members = authorIds.length ? await supabase.from('space_memberships').select('user_id,display_name').eq('space_id', spaceId).in('user_id', authorIds) : { data: [], error: null };
+  const members = authorIds.length ? await supabase.from('member_profiles').select('user_id,display_name').in('user_id', authorIds) : { data: [], error: null };
   if (members.error) throw new Error('Não foi possível carregar os nomes.');
   const names = new Map((members.data || []).map((m) => [m.user_id as string, m.display_name as string]));
   return { items: batch.slice(0, pageSize).map((r) => ({ ...r, displayName: names.get(r.author_user_id) || 'Participante' })), nextPage: batch.length > pageSize ? page + 1 : null };
