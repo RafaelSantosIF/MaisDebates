@@ -45,7 +45,10 @@ export default function OpeningScreen() {
   if (checking) return <Page title="+Debates"><ConversationArt /><Heading>Um espaço para pensar junto.</Heading><Body>Preparando seu espaço…</Body></Page>;
 
   if (phase === 'code') return (
-    <Page title="Convite" onBack={() => setPhase('onboarding')} footer={<Button label="Continuar" onPress={continueWithCode} large />}>
+    <Page title="Convite" onBack={() => setPhase('onboarding')} footer={<View style={styles.footerActions}>
+      <Button label="Continuar" onPress={continueWithCode} large />
+      <Button label="Já tenho conta" onPress={() => router.push('/login')} secondary />
+    </View>}>
       <ConversationArt variant="invite" />
       <View style={styles.sectionMark}><SkiaGlyph name="people" size={28} color="#3478E8" /></View>
       <Heading>Entre pelo seu convite.</Heading>
@@ -78,6 +81,7 @@ export default function OpeningScreen() {
 }
 
 const styles = StyleSheet.create({
+  footerActions: { gap: 8 },
   brandRow: { alignItems: 'flex-start', marginTop: 4, minHeight: 76 },
   brandCopy: { flex: 1, maxWidth: '100%' },
   brandTag: { color: colors.muted, fontSize: 16, lineHeight: 22, marginTop: 3, marginLeft: 2 },

@@ -25,7 +25,10 @@ export default function InviteScreen() {
 
   const expiresOn = new Date(preview.data.expires_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
   return (
-    <Page title="+Debates" footer={<Button label="Continuar" onPress={() => router.push({ pathname: '/boas-vindas/[token]', params: { token } })} large />}>
+    <Page title="+Debates" footer={<View style={styles.footerActions}>
+      <Button label="Continuar" onPress={() => router.push({ pathname: '/boas-vindas/[token]', params: { token } })} large />
+      <Button label="Já tenho conta" onPress={() => router.push({ pathname: '/login', params: { token } })} secondary />
+    </View>}>
       <ConversationArt variant="invite" />
       <View style={styles.kickerRow}><SkiaGlyph name="people" size={24} color="#1764D8" /><Text style={styles.kicker}>VOCÊ RECEBEU UM CONVITE</Text></View>
       <Heading large>Uma boa conversa começa com você.</Heading>
@@ -55,6 +58,7 @@ export default function InviteScreen() {
 }
 
 const styles = StyleSheet.create({
+  footerActions: { gap: 8 },
   kickerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   kicker: { color: '#1764D8', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
   bold: { color: '#17396F', fontWeight: '700' },
