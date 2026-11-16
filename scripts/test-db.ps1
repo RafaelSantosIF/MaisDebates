@@ -26,6 +26,8 @@ try {
     '/workspace/supabase/migrations/20261018013000_invite_attribution.sql',
     '/workspace/supabase/migrations/20261018014500_restore_report.sql',
     '/workspace/supabase/migrations/20261103090000_shared_profile_and_open_invites.sql',
+    '/workspace/supabase/migrations/20261116193000_signup_member_profiles.sql',
+    '/workspace/supabase/migrations/20261116194500_mediation_space_management.sql',
     '/workspace/supabase/tests/core_rls.sql'
   )
   foreach ($file in $files) {

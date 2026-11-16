@@ -26,6 +26,8 @@ export default function ProfileScreen() {
   const memberships = useQuery({ queryKey: ['memberships'], queryFn: getMemberships });
   const [editedName, setEditedName] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [signOutError, setSignOutError] = useState('');
+  const [signingOut, setSigningOut] = useState(false);
   const name = editedName ?? profile.data?.display_name ?? '';
   const save = useMutation({
     mutationFn: () => renameMember(name.trim()),
@@ -43,6 +45,25 @@ export default function ProfileScreen() {
     onError: (cause: Error) => setError(cause.message),
   });
   const isMediator = memberships.data?.some((item) => item.role === 'mediator') ?? false;
+
+  async function signOut() {
+    if (!supabase) { setSignOutError('Configure o Supabase para encerrar sua sessão.'); return; }
+    setSigningOut(true);
+    setSignOutError('');
+    try {
+      const { error: authError } = await supabase.auth.signOut();
+      if (authError) {
+        setSignOutError(`Não foi possível sair: ${authError.message}`);
+        return;
+      }
+      queryClient.clear();
+      router.replace('/');
+    } catch (cause) {
+      setSignOutError(cause instanceof Error ? `Não foi possível sair: ${cause.message}` : 'Não foi possível encerrar sua sessão.');
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   return <Page title="+Debates">
     <View style={styles.identity}>
@@ -65,6 +86,8 @@ export default function ProfileScreen() {
       <ProfileLink icon="shield" label="Área de mediação" onPress={() => router.push(isMediator ? '/mediacao' : '/mediacao/entrar')} />
       <ProfileLink icon="help" label="Ajuda" onPress={() => Alert.alert('Precisa de ajuda?', 'Procure a mediação responsável pela sua turma.')} last />
     </View>
+    {signOutError ? <Text accessibilityRole="alert" style={styles.error}>{signOutError}</Text> : null}
+    <Button label="Sair" onPress={() => void signOut()} busy={signingOut} secondary />
   </Page>;
 }
 

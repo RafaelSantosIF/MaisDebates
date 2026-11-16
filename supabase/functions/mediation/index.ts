@@ -10,12 +10,17 @@ const schema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('close'), debateId: z.string().uuid(), expectedVersion: z.number().int().positive() }),
   z.object({ action: z.literal('saveSummary'), debateId: z.string().uuid(), overview: z.string().max(5000), arguments: z.string().max(5000), agreementsText: z.string().max(5000), divergences: z.string().max(5000), openQuestions: z.string().max(5000), expectedRevision: z.number().int().nonnegative() }),
   z.object({ action: z.literal('publishSummary'), summaryId: z.string().uuid(), expectedRevision: z.number().int().positive(), reviewed: z.boolean() }),
+  z.object({ action: z.literal('manageSpace'), spaceId: z.string().uuid(), operation: z.enum(['rename', 'removeParticipant', 'leave']), targetUserId: z.string().uuid().optional(), title: z.string().trim().min(2).max(100).optional() }),
 ]);
 const messages: Record<string, string> = {
   NOT_A_MEMBER: 'Você não participa deste grupo.', NOT_A_MEDIATOR: 'Esta ação exige acesso de mediação.',
+  NOT_AUTHENTICATED: 'Entre novamente para continuar.',
   DEBATE_NOT_CLOSED: 'Encerre o debate antes de preparar a síntese.',
   VERSION_CONFLICT: 'Este conteúdo mudou em outro lugar. Atualize antes de continuar.',
-  VALIDATION_ERROR: 'Confira os campos obrigatórios, a fonte e o prazo.',
+  VALIDATION_ERROR: 'Confira os dados informados e tente novamente.',
+  SPACE_NOT_FOUND: 'Esta turma não está disponível.',
+  PARTICIPANT_NOT_FOUND: 'Este participante não está mais ativo nesta turma.',
+  LAST_MEDIATOR: 'A turma precisa ter ao menos uma pessoa mediadora. Transfira a mediação antes de sair.',
 };
 function respond(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
@@ -43,6 +48,13 @@ Deno.serve(async (request) => {
     case 'close': call = await db.rpc('close_debate', { p_actor: user.id, p_debate_id: input.debateId, p_expected_version: input.expectedVersion }); break;
     case 'saveSummary': call = await db.rpc('save_summary', { p_actor: user.id, p_debate_id: input.debateId, p_overview: input.overview, p_arguments: input.arguments, p_agreements_text: input.agreementsText, p_divergences: input.divergences, p_open_questions: input.openQuestions, p_expected_revision: input.expectedRevision }); break;
     case 'publishSummary': call = await db.rpc('publish_summary', { p_actor: user.id, p_summary_id: input.summaryId, p_expected_revision: input.expectedRevision, p_reviewed: input.reviewed }); break;
+    case 'manageSpace': call = await db.rpc('manage_space', {
+      p_actor: user.id,
+      p_space_id: input.spaceId,
+      p_action: input.operation === 'removeParticipant' ? 'remove_participant' : input.operation,
+      p_target_user: input.targetUserId ?? null,
+      p_title: input.title ?? null,
+    }); break;
   }
   if (call.error) return respond({ data: null, error: { code: 'UNAVAILABLE', message: 'Não foi possível concluir agora.' }, requestId }, 503);
   const result = call.data as Record<string, unknown>; const code = String(result.code);

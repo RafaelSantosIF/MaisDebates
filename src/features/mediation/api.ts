@@ -3,6 +3,7 @@ import { supabase } from '@/shared/lib/supabase';
 import { type Debate } from '@/features/debates/api';
 
 export type MediatorSpace = { space_id: string; display_name: string; spaces: { title: string } | null };
+export type SpaceParticipant = { user_id: string; display_name: string; joined_at: string };
 export type Report = { id: string; debate_id: string; target_type: 'position' | 'reply'; target_id: string; reason: string; details: string | null; status: string; version: number; created_at: string; debates: { question: string; space_id: string } | null };
 export type Summary = { id: string; debate_id: string; revision: number; overview: string; arguments: string; agreements_text: string; divergences: string; open_questions: string; status: 'draft' | 'published'; reviewed_by: string | null; published_at: string | null };
 export type SourceDraft = { title: string; publisher: string; url: string; whyRead: string };
@@ -31,6 +32,13 @@ export async function getMediatorSpaces(): Promise<MediatorSpace[]> {
   const { data, error } = await client.from('space_memberships').select('space_id,display_name,spaces(title)').eq('user_id', session.user.id).eq('role', 'mediator').eq('status', 'active').limit(30);
   if (error) throw new Error('Não foi possível carregar seus grupos de mediação.');
   return data as unknown as MediatorSpace[];
+}
+export async function getSpaceParticipants(spaceId: string): Promise<SpaceParticipant[]> {
+  const client = await requireClient();
+  const { data, error } = await client.from('space_memberships').select('user_id,display_name,joined_at')
+    .eq('space_id', spaceId).eq('role', 'participant').eq('status', 'active').order('joined_at', { ascending: true }).limit(100);
+  if (error) throw new Error('Não foi possível carregar os participantes desta turma.');
+  return data as SpaceParticipant[];
 }
 export async function getMediatedDebates(spaceIds: string[]): Promise<Debate[]> {
   if (!spaceIds.length) return [];
@@ -88,3 +96,6 @@ export const closeDebate = (debateId: string, expectedVersion: number) => invoke
 export const saveSummary = (input: { debateId: string; overview: string; arguments: string; agreementsText: string; divergences: string; openQuestions: string; expectedRevision: number }) => invoke('mediation', { action: 'saveSummary', ...input }, summaryResponse);
 export const publishSummary = (summaryId: string, expectedRevision: number, reviewed: boolean) => invoke('mediation', { action: 'publishSummary', summaryId, expectedRevision, reviewed }, summaryResponse);
 export const issueInvite = (spaceId: string, debateId: string | null, expiresAt: string, open: boolean) => invoke('invite', { action: 'issue', spaceId, debateId, expiresAt, open }, inviteResponse);
+const spaceManagementResponse = z.object({ code: z.literal('OK') });
+export const manageSpace = (input: { spaceId: string; operation: 'rename' | 'removeParticipant' | 'leave'; targetUserId?: string; title?: string }) =>
+  invoke('mediation', { action: 'manageSpace', ...input }, spaceManagementResponse);

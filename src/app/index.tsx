@@ -27,8 +27,7 @@ export default function OpeningScreen() {
     void (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        const { data } = await supabase.from('space_memberships').select('space_id').eq('user_id', session.user.id).eq('status', 'active').limit(1);
-        if (active && data?.length) { router.replace('/(tabs)/debates'); return; }
+        if (active) { router.replace('/(tabs)/debates'); return; }
       }
       if (active) setChecking(false);
     })().catch(() => { if (active) setChecking(false); });

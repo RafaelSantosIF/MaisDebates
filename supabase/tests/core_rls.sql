@@ -9,6 +9,17 @@ values
  ('00000000-0000-0000-0000-000000000000','10000000-0000-0000-0000-000000000004','authenticated','authenticated','mediator-b@example.test','',now(),now(),now()),
  ('00000000-0000-0000-0000-000000000000','10000000-0000-0000-0000-000000000005','authenticated','authenticated','visitor@example.test','',now(),now(),now()),
  ('00000000-0000-0000-0000-000000000000','10000000-0000-0000-0000-000000000006','authenticated','authenticated','visitor-two@example.test','',now(),now(),now());
+insert into auth.users (instance_id,id,aud,role,email,encrypted_password,raw_user_meta_data,email_confirmed_at,created_at,updated_at)
+values ('00000000-0000-0000-0000-000000000000','10000000-0000-0000-0000-000000000007','authenticated','authenticated','new-account@example.test','','{"display_name":"Conta nova"}',now(),now(),now());
+
+do $$ begin
+ if (select display_name from public.member_profiles where user_id='10000000-0000-0000-0000-000000000006') <> 'Participante' then
+   raise exception 'new account profile was not created';
+ end if;
+ if (select display_name from public.member_profiles where user_id='10000000-0000-0000-0000-000000000007') <> 'Conta nova' then
+   raise exception 'signup display name was not used';
+ end if;
+end $$;
 
 insert into public.spaces(id,title,created_by) values
  ('20000000-0000-0000-0000-000000000001','Grupo A','10000000-0000-0000-0000-000000000002'),
@@ -49,6 +60,7 @@ do $$ begin
   if has_table_privilege('authenticated','public.positions','INSERT') then raise exception 'client insert grant leaked'; end if;
   if has_function_privilege('authenticated','public.redeem_invite(uuid,text,text)','EXECUTE') then raise exception 'client RPC grant leaked'; end if;
   if has_function_privilege('authenticated','public.update_member_name(uuid,uuid,text)','EXECUTE') then raise exception 'profile RPC grant leaked'; end if;
+  if has_function_privilege('authenticated','public.manage_space(uuid,uuid,text,uuid,text)','EXECUTE') then raise exception 'space management RPC grant leaked'; end if;
   if has_table_privilege('authenticated','public.member_profiles','INSERT,UPDATE,DELETE') then raise exception 'profile write grant leaked'; end if;
   if has_function_privilege('authenticated','public.restore_report(uuid,uuid,text,integer)','EXECUTE') then raise exception 'restore RPC grant leaked'; end if;
 end $$;
@@ -116,6 +128,8 @@ set role service_role;
 do $$ declare token text; open_token text; result jsonb; begin
   select t.token into token from test_invite_token t;
   select t.token into open_token from test_open_invite_token t;
+  result := public.update_member_profile('10000000-0000-0000-0000-000000000007','Nova conta');
+  if result->>'code' <> 'OK' then raise exception 'non-member cannot update own profile'; end if;
   result := public.update_member_name('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','Ana L.');
   if result->>'code' <> 'OK' then raise exception 'participant A cannot rename herself'; end if;
   result := public.update_member_profile('10000000-0000-0000-0000-000000000001','Ana compartilhada');
@@ -242,5 +256,37 @@ do $$ begin
   if (select count(*) from public.debates where status='draft') <> 0 then raise exception 'A saw draft'; end if;
 end $$;
 reset role;
+
+insert into public.space_memberships(space_id,user_id,role,display_name) values
+ ('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000007','participant','Conta nova');
+set role service_role;
+do $$ declare result jsonb; begin
+  result := public.manage_space('10000000-0000-0000-0000-000000000007','20000000-0000-0000-0000-000000000001','rename',null,'Turma indevida');
+  if result->>'code' <> 'NOT_A_MEDIATOR' then raise exception 'participant renamed a space'; end if;
+  result := public.manage_space('10000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','rename',null,'Grupo A atualizado');
+  if result->>'code' <> 'OK' then raise exception 'mediator could not rename own space'; end if;
+  result := public.manage_space('10000000-0000-0000-0000-000000000004','20000000-0000-0000-0000-000000000001','remove_participant','10000000-0000-0000-0000-000000000007',null);
+  if result->>'code' <> 'NOT_A_MEDIATOR' then raise exception 'mediator removed participant from another space'; end if;
+  result := public.manage_space('10000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','remove_participant','10000000-0000-0000-0000-000000000007',null);
+  if result->>'code' <> 'OK' then raise exception 'mediator could not remove a participant'; end if;
+  result := public.manage_space('10000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','remove_participant','10000000-0000-0000-0000-000000000007',null);
+  if result->>'code' <> 'PARTICIPANT_NOT_FOUND' then raise exception 'removed participant was removed twice'; end if;
+  result := public.manage_space('10000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','leave',null,null);
+  if result->>'code' <> 'LAST_MEDIATOR' then raise exception 'last mediator left a space'; end if;
+end $$;
+reset role;
+insert into public.space_memberships(space_id,user_id,role,display_name)
+  values ('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000004','mediator','Caio');
+set role service_role;
+do $$ declare result jsonb; begin
+  result := public.manage_space('10000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','leave',null,null);
+  if result->>'code' <> 'OK' then raise exception 'mediator could not leave when another mediator remains'; end if;
+end $$;
+reset role;
+do $$ begin
+  if (select title from public.spaces where id='20000000-0000-0000-0000-000000000001') <> 'Grupo A atualizado' then raise exception 'space title was not updated'; end if;
+  if (select status from public.space_memberships where space_id='20000000-0000-0000-0000-000000000001' and user_id='10000000-0000-0000-0000-000000000007') <> 'removed' then raise exception 'participant membership was not revoked'; end if;
+  if (select status from public.space_memberships where space_id='20000000-0000-0000-0000-000000000001' and user_id='10000000-0000-0000-0000-000000000002') <> 'removed' then raise exception 'mediator membership was not ended'; end if;
+end $$;
 
 rollback;

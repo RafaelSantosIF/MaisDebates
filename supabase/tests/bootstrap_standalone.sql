@@ -11,6 +11,7 @@ create table auth.users (
   role text,
   email text,
   encrypted_password text,
+  raw_user_meta_data jsonb,
   email_confirmed_at timestamptz,
   created_at timestamptz,
   updated_at timestamptz
